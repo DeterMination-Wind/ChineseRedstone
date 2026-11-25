@@ -1,0 +1,241 @@
+# -*- coding: utf-8 -*-
+"""生成吃呢瑟（雷石东直放站版）语言包。
+
+用法: python tools/gen_bundle.py
+输出: bundle_cns.properties （模组根目录）
+"""
+import io
+import os
+import re
+import random
+import hashlib
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+BUNDLES = os.path.join(ROOT, '..', 'Mindustry-master', 'core', 'assets', 'bundles')
+
+from cns_data import LEX
+from cns_data2 import NAME_OVERRIDE, HERO
+
+TOKEN_RE = re.compile(r'\[\[|\\.|\{[0-9]+\}|\[[A-Za-z0-9_#]*\]')
+
+# 最长优先，单次替换，不级联
+GLOSSARY_RE = re.compile('|'.join(re.escape(k) for k in sorted(LEX, key=len, reverse=True)))
+
+NAME_KEY_RE = re.compile(r'^(item|block|unit|liquid|status|team|planet|sector|ability)\.'
+                         r'[a-z0-9\-]+\.name$')
+
+POSSESSIVE = ('电力|物品|液体|单位|敌人|玩家|核心|建筑|方块|科技|资源|游戏|地图|服务器|武器|'
+              '弹药|护盾|能量|热量|数据|逻辑|行星|防御|进攻|军队')
+POSSESSIVE_RE = re.compile('(%s)的([\\u4e00-\\u9fa5]{2,4})' % POSSESSIVE)
+
+MODIFIERS = ('高级|低级|大型|小型|巨型|超巨型|强化|基础|普通|特殊|稀有|强大|轻型|重型|机械|'
+             '气动|太阳的|塑料钛|阶段布|激增|泰坦|雷神|警察|领导|硅胶')
+MODIFIER_RE = re.compile('(%s)(?=[\\u4e00-\\u9fa5])' % MODIFIERS)
+
+PLURAL_RE = re.compile(r'(\d+\s*[个只名条座台枚张块种])([\u4e00-\u9fa5]{2,4})(?=[，。、,\.!\?！？\s]|$)')
+
+
+def parse(path):
+    out = {}
+    pending = None
+    for line in io.open(path, encoding='utf-8'):
+        line = line.rstrip('\r\n')
+        if pending is not None:
+            line = pending + line.lstrip()
+            pending = None
+        if not line.strip() or line.lstrip().startswith('#') or line.lstrip().startswith('!'):
+            continue
+        # 属性文件的续行：行尾单个反斜杠表示下一行继续
+        if line.endswith('\\') and not line.endswith('\\\\'):
+            pending = line[:-1]
+            continue
+        m = re.search(r'(?<!\\)=', line)
+        if not m:
+            continue
+        out[line[:m.start()].strip()] = line[m.start() + 1:].strip()
+    return out
+
+
+def protect(text):
+    tokens = []
+
+    def repl(m):
+        tokens.append(m.group(0))
+        return '\x00%d\x00' % (len(tokens) - 1)
+
+    return TOKEN_RE.sub(repl, text), tokens
+
+
+def restore(text, tokens):
+    return re.sub(r'\x00(\d+)\x00', lambda m: tokens[int(m.group(1))], text)
+
+
+def glossary(text):
+    return GLOSSARY_RE.sub(lambda m: LEX[m.group(0)], text)
+
+
+def apply_syntax(s, rng):
+    # 人称：把"你"机器地翻译成敬语
+    if rng.random() < 0.35:
+        s = re.sub(r'你(?![们])', '您', s, count=1)
+
+    # 情态动词的僵硬直译
+    for prob, pat, rep in (
+        (0.70, '无法', '不能够'),
+        (0.55, '不能(?![够])', '不可以'),
+        (0.30, '不会', '将不会'),
+        (0.55, '可以', '能够'),
+        (0.50, '需要', '需求'),
+        (0.50, '所有', '所有的'),
+        (0.45, '每个', '每一个'),
+        (0.30, '任何', '任何的'),
+        (0.20, '这个', '这个的'),
+        (0.20, '那个', '那个的'),
+        (0.45, '并且', '而且'),
+        (0.40, '并(?![且不])', '而且'),
+        (0.30, '或(?![者])', '或者'),
+        (0.25, '同时', '在相同的时间'),
+        (0.30, '但是', '然而但是'),
+        (0.18, '所以', '因此上'),
+        (0.16, '例如', '举例来说比如说'),
+        (0.24, '再次', '又一次地'),
+        (0.24, '立即', '立刻地'),
+        (0.20, '比较', '相对地比较'),
+        (0.20, '非常', '非常地'),
+        (0.18, '十分', '十分地'),
+        (0.45, '用于', '被使用于'),
+        (0.35, '(?<![朝向])向(?![量])', '朝向'),
+        (0.30, '使(?![用得])', '使得'),
+        (0.25, '能够', '是有能力去'),
+        (0.30, '使用', '利用'),
+        (0.25, '产生', '制造出'),
+        (0.25, '提供', '供给'),
+        (0.20, '增加', '添加'),
+        (0.20, '减少', '降低'),
+        (0.20, '允许', '许可'),
+        (0.20, '自动', '自动地'),
+        (0.16, '一起', '一同地'),
+        (0.16, '包含', '包括着'),
+        (0.16, '显示', '显示出'),
+    ):
+        if rng.random() < prob:
+            s = re.sub(pat, rep, s)
+
+    # 名词短语倒装：A的B -> B的A （老式统计机器翻译的招牌错误）
+    if rng.random() < 0.35:
+        s = POSSESSIVE_RE.sub(lambda m: m.group(2) + '的' + m.group(1), s, count=1)
+
+    # 定语后面莫名多一个"的"
+    if rng.random() < 0.40:
+        s = MODIFIER_RE.sub(lambda m: m.group(1) + '的', s, count=1)
+
+    # 量词乱换
+    if rng.random() < 0.25:
+        s = s.replace('一个', '一只')
+    if rng.random() < 0.25:
+        s = re.sub(r'(\d+)\s*个', r'\1 只', s)
+
+    # 动词体
+    if rng.random() < 0.15:
+        s = s.replace('已经', '已经曾经')
+    if rng.random() < 0.12:
+        s = s.replace('正在', '正在当前')
+
+    return s
+
+
+def garnish(s, rng):
+    """名词复数、标点与口头语：在词表替换之后执行，只做一次。"""
+    if rng.random() < 0.16:
+        s = PLURAL_RE.sub(lambda m: m.group(1) + m.group(2) + '们', s, count=1)
+    if rng.random() < 0.10:
+        s = re.sub('(单元|街区|项目|建筑物|资源|弹药|材料|技术|扇区|墙壁)(?![们的是])', r'\1们', s, count=1)
+
+    # 半角标点 + 空格（早期机器翻译的排版指纹）
+    if rng.random() < 0.38:
+        s = s.replace('，', ', ')
+    if rng.random() < 0.28:
+        s = s.replace('。', ' . ')
+    if rng.random() < 0.22:
+        s = s.replace('：', ': ')
+    if rng.random() < 0.30:
+        s = s.replace('！', ' !')
+    if rng.random() < 0.30:
+        s = s.replace('？', ' ?')
+    if rng.random() < 0.20:
+        s = s.replace('、', ',')
+
+    # 偶尔的口头语残留
+    if rng.random() < 0.02:
+        s = s.rstrip() + ' 的说'
+    if rng.random() < 0.01:
+        s = '注意：' + s
+
+    return re.sub(r' {2,}', ' ', s)
+
+
+def transform(key, text):
+    seed = int(hashlib.sha1(key.encode('utf-8')).hexdigest()[:8], 16)
+    out = text
+    # 至少尝试 6 次，保证长句子不会原封不动地漏过去
+    for attempt in range(6):
+        rng = random.Random(seed + attempt * 7919)
+        body, tokens = protect(text)
+        body = apply_syntax(body, rng)
+        body = glossary(body)
+        body = garnish(body, rng)
+        out = restore(body, tokens)
+        out = re.sub(r' {2,}', ' ', out)
+        if out != text or attempt == 5:
+            break
+    return out
+
+
+def tokens_of(text):
+    return sorted(TOKEN_RE.findall(text))
+
+
+def main():
+    en = parse(os.path.join(BUNDLES, 'bundle.properties'))
+    zh = parse(os.path.join(BUNDLES, 'bundle_zh_CN.properties'))
+
+    # 英文独有键（官方简体包里没有）——手工补上，种子随机性无法覆盖
+    for key in list(en):
+        if key.startswith('campaign.rework.serpulo'):
+            HERO[key] = ('[accent]⚠ 塞普罗的运动已经被重新工作过。[]\\n\\n'
+                         '扇区的位置和困难已经被改变。您可能遭遇与旧的布局遗留下来的运动保存文件有关的问题。\\n\\n'
+                         '为了一个更干净的体验,请考虑在设定中重置您的运动保存文件。')
+
+    lines = []
+    stats = {'hero': 0, 'name': 0, 'auto': 0, 'english': 0, 'hero-fallback': 0}
+    for key in en:
+        src = zh.get(key)
+        if src is None or not src.strip():
+            src = en[key]
+            stats['english'] += 1
+        if key in HERO and tokens_of(HERO[key].replace('\r', '').replace('\n', '\\n')) == tokens_of(src):
+            value = HERO[key]
+            stats['hero'] += 1
+        elif key.endswith('.name') and key[:-5] in NAME_OVERRIDE:
+            value = NAME_OVERRIDE[key[:-5]]
+            stats['name'] += 1
+        else:
+            if key in HERO:
+                stats['hero-fallback'] += 1
+            stats['auto'] += 1
+            value = transform(key, src)
+        value = value.replace('\r', '').replace('\n', '\\n')
+        lines.append('%s = %s' % (key, value))
+
+    out_path = os.path.join(ROOT, 'bundle_cns.properties')
+    with io.open(out_path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write('\n'.join(lines) + '\n')
+
+    print('keys: %d  hero: %d  name: %d  auto: %d  english-fallback: %d  hero-fallback: %d' %
+          (len(lines), stats['hero'], stats['name'], stats['auto'], stats['english'], stats['hero-fallback']))
+    print('written: ' + out_path)
+
+
+if __name__ == '__main__':
+    main()

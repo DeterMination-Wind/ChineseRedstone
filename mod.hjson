@@ -1,0 +1,9 @@
+name: ChineseRedstone
+displayName: 吃呢瑟
+author: DeterMination-Wind
+description: 为 Mindustry v159 添加一种新语言「吃呢瑟」——英文经最早的非神经网络谷歌翻译成中文，再被雷石东直放站转发一遍的结果。
+version: 1.0.0
+minGameVersion: 159
+java: true
+main: chineseredstone.ChineseRedstoneMod
+repo: DeterMination-Wind/ChineseRedstone
