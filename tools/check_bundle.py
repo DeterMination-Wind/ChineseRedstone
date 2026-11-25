@@ -17,11 +17,10 @@ _spec.loader.exec_module(_gb)
 parse = _gb.parse
 
 
-en = parse(os.path.join(BUNDLES, 'bundle.properties'))
-zh = parse(os.path.join(BUNDLES, 'bundle_zh_CN.properties'))
+en, zh, extra = _gb.load_sources()
 cns = parse(os.path.join(ROOT, 'bundle_cns.properties'))
 
-print('keys en=%d cns=%d' % (len(en), len(cns)))
+print('keys en=%d (+%d upstream) cns=%d' % (len(en), extra, len(cns)))
 missing = [k for k in en if k not in cns]
 extra = [k for k in cns if k not in en]
 print('missing keys:', missing[:10], 'extra:', extra[:10])

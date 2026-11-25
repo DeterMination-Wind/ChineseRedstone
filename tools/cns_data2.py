@@ -544,3 +544,51 @@ HERO = {
     "unit.mono.description": "自动地开采警察和领导,并把它们存放进核心里。",
     "unit.oct.description": "用它再生的盾牌保护附近的盟友。能够携带大多数的地面单元们。",
 }
+
+# ===== 1.0.1：让仍然读起来太顺的短标签和实体名也雷石东一点 =====
+HERO.update({
+    "position": "定位点",
+    "website": "网地",
+    "color": "卡勒",
+    "done": "已经做完",
+    "research": "瑞瑟奇",
+    "editmessage": "编辑情报",
+    "off": "关掉",
+    "delete": "删掉",
+    "hide": "藏起来",
+    "open": "开开",
+    "cancel": "取消掉",
+    "openlink": "开开链条",
+    "edit": "编辑一下",
+    "width": "宽",
+    "height": "高",
+    "menu": "菜谱",
+    "settings.data": "达塔",
+    "settings.graphics": "图像",
+})
+
+NAME_OVERRIDE.update({
+    "item.coal": "煤渣",
+    "item.tungsten": "坦格斯滕",
+    "item.oxide": "氧气化物",
+    "item.carbide": "卡拜德",
+    "liquid.water": "沃特",
+    "liquid.slag": "斯拉格",
+    "liquid.ozone": "奥佐恩",
+    "unit.fortress": "福特勒斯",
+    "unit.nova": "诺瓦",
+    "unit.scepter": "塞普特",
+    "unit.vanquish": "万奎什",
+    "block.door": "多阿",
+    "block.hail": "黑尔",
+    "block.router": "鲁特",
+    "block.melter": "梅尔特",
+    "block.battery": "巴特瑞",
+    "block.tsunami": "楚纳米",
+    "block.salvo": "萨尔沃",
+    "block.spectre": "斯佩克特",
+    "block.sublimate": "萨布利梅特",
+    "block.diffuse": "迪菲尤斯",
+    "block.target-dummy": "塔吉特假人",
+})
+

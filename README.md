@@ -14,10 +14,12 @@
 | Wave | 挥手 |
 | Mono | 单声道 |
 | Quad | 四元组 |
-| Language | 舌头 |
-| Volume | 体积 |
-| Logic Processor | 逻辑的处理机 |
-| Memory Cell | 记忆的细胞 |
+| Language | 兰瓜吉 |
+| Volume | 沃鲁姆 |
+| Logic Processor | 罗吉克的普罗塞瑟 |
+| Memory Cell | 梅莫里的细胞 |
+| Core No-Build Radius | 科尔的诺比尔德雷达斯 |
+| Router | 鲁特 |
 
 ## 安装
 
@@ -50,8 +52,8 @@
 
 ## 翻译是怎么生成的
 
-- 底本：官方 `core/assets/bundles/bundle_zh_CN.properties`（2911 个键，和英文完全对齐）。
-- `tools/cns_data.py`：中文 → 错译词表（约 700 条），最长优先、单遍替换，不会级联。
+- 底本：官方 `core/assets/bundles/bundle_zh_CN.properties`，再合并上游 nightly 新增的键（用官方简中补译，`tools/fetch_upstream.py` 下载），目前共 3504 个键。
+- `tools/cns_data.py`：中文 → 错译词表（约 700 条）＋雷石东式音译表（核心 → 科尔、范围 → 雷达斯……），最长优先、单遍替换，不会级联。
 - `tools/cns_data2.py`：具体内容键的名字覆写（物品 / 方块 / 单位 / 液体，约 270 条）与手写「英雄条目」（菜单、设置、提示、核心台词，约 240 条）。
 - `tools/gen_bundle.py`：保护 `{0}`、`[accent]`、`[]`、`[[`、`\n` 等标记，再做规则化的机器腔噪声（敬语"您"、情态动词直译、定语乱加"的"、名词复数加"们"、半角标点），按 key 的哈希做确定性随机种子，因此每次生成结果稳定。
 - `tools/check_bundle.py`：校验键完整、标记占位符零丢失、无明显文本事故。
@@ -59,9 +61,10 @@
 重新生成：
 
 ```powershell
+python tools/fetch_upstream.py   # 拉取上游最新英/中 bundle，补齐新版新增键
 python tools/gen_bundle.py
 python tools/check_bundle.py
-./build.ps1
+./build.ps1                       # 或 ./build.ps1 -Release
 ```
 
 ## 实现说明（为什么不是一个普通语言包）
@@ -76,6 +79,6 @@ python tools/check_bundle.py
 
 ## 已知限制
 
-- 只针对 v159 的键表；游戏更新后可能缺键（缺的键会显示成 `???key???`）。
+- 键表跟随上游 master；比你装的 nightly 更新时没问题，比它旧时新增键会以英文出现——重新跑一次 `tools/fetch_upstream.py` + `tools/gen_bundle.py` 即可。
 - 这是纯文本 mod，不带贴图、不带内容，单位/方块图标仍是原版。
 - 切换语言需要重启游戏，这是原版机制。
